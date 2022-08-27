@@ -28,6 +28,20 @@ type ChatService struct {
 	chatChannels sync.Map
 }
 
+func setErr(stream api.ChatService_ChatServer, code api.ServerMessage_Err_Code, message string) error {
+	if err := stream.Send(&api.ServerMessage{
+		Type: api.ServerMessage_SMTErr,
+		Err: &api.ServerMessage_Err{
+			Code:    code,
+			Message: message,
+		},
+	}); err != nil {
+		return errors.Wrap(err, "stream.Send failed")
+	}
+
+	return nil
+}
+
 func (s *ChatService) Chat(stream api.ChatService_ChatServer) error {
 	auth, err := stream.Recv()
 	if err != nil {
@@ -35,17 +49,7 @@ func (s *ChatService) Chat(stream api.ChatService_ChatServer) error {
 	}
 	// 拒绝非授权请求
 	if auth.Type != api.ClientMessage_CMTAuth {
-		if err := stream.Send(&api.ServerMessage{
-			Type: api.ServerMessage_SMTErr,
-			Err: &api.ServerMessage_Err{
-				Code:    api.ServerMessage_Err_ProtocolMismatch,
-				Message: "无授权信息",
-			},
-		}); err != nil {
-			return errors.Wrap(err, "stream.Send failed")
-		}
-
-		return nil
+		return setErr(stream, api.ServerMessage_Err_ProtocolMismatch, "无授权信息")
 	}
 	// 处理授权
 	if err := stream.Send(&api.ServerMessage{
@@ -73,13 +77,7 @@ func (s *ChatService) Chat(stream api.ChatService_ChatServer) error {
 			}
 
 			if message.Type != api.ClientMessage_CMTChat {
-				if err := stream.Send(&api.ServerMessage{
-					Type: api.ServerMessage_SMTErr,
-					Err: &api.ServerMessage_Err{
-						Code:    api.ServerMessage_Err_ProtocolMismatch,
-						Message: "无授权信息",
-					},
-				}); err != nil {
+				if err := setErr(stream, api.ServerMessage_Err_ProtocolMismatch, "协议错误"); err != nil {
 					errChan <- errors.Wrap(err, "stream.Send failed")
 				}
 				return
@@ -87,13 +85,7 @@ func (s *ChatService) Chat(stream api.ChatService_ChatServer) error {
 
 			ch, ok := s.chatChannels.Load(message.Chat.To)
 			if !ok {
-				if err := stream.Send(&api.ServerMessage{
-					Type: api.ServerMessage_SMTErr,
-					Err: &api.ServerMessage_Err{
-						Code:    api.ServerMessage_Err_PersonNotFound,
-						Message: "用户不在线",
-					},
-				}); err != nil {
+				if err := setErr(stream, api.ServerMessage_Err_PersonNotFound, "用户不在线"); err != nil {
 					errChan <- errors.Wrap(err, "stream.Send failed")
 				}
 				return
