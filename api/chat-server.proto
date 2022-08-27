@@ -38,13 +38,22 @@ message ClientMessage {
 message ServerMessage {
   enum Type {
     SMTErr = 0;
-    SMTChat = 1;
+    SMTAuth = 1;
+    SMTChat = 2;
   }
 
   message Err {
-    string Code = 1;
+    enum Code {
+      ProtocolMismatch = 0;
+      AuthFailed = 1;
+      PersonNotFound = 2;
+    }
+
+    Code code = 1;
     string Message = 2;
   }
+
+  message Auth {}
 
   message Chat {
     string from = 1;

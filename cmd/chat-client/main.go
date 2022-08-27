@@ -55,6 +55,29 @@ func main() {
 	refx.Must(err)
 	defer stream.CloseSend()
 
+	// 登录
+	if err := stream.Send(&api.ClientMessage{
+		Type: api.ClientMessage_CMTAuth,
+		Auth: &api.ClientMessage_Auth{
+			Username: options.Username,
+		},
+	}); err != nil {
+		fmt.Printf("服务器通信失败: %s\n", err.Error())
+		return
+	}
+	message, err := stream.Recv()
+	if err != nil {
+		fmt.Printf("服务器通信失败: %s\n", err.Error())
+		return
+	}
+	if message.Type == api.ServerMessage_SMTErr {
+		fmt.Printf("服务器端错误: [%s] %s", message.Err.Code, message.Err.Message)
+		return
+	} else if message.Type != api.ServerMessage_SMTAuth {
+		fmt.Println("通信协议出错")
+		return
+	}
+
 	// termui
 	refx.Must(termui.Init())
 	defer termui.Close()
@@ -123,7 +146,11 @@ func main() {
 				continue
 			}
 
-			appendMessageToChatArea(fmt.Sprintf("%s: %s", message.Chat.From, message.Chat.Content))
+			if message.Type == api.ServerMessage_SMTChat {
+				appendMessageToChatArea(fmt.Sprintf("[%s] %s", message.Chat.From, message.Chat.Content))
+			} else if message.Type == api.ServerMessage_SMTErr {
+				appendMessageToChatArea(fmt.Sprintf("[%s] %s", message.Err.Code, message.Err.Message))
+			}
 		}
 	}()
 
