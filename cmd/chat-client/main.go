@@ -22,8 +22,8 @@ type Options struct {
 	flag.Options
 
 	Endpoint string `flag:"-e; default: 127.0.0.1:6080"`
-	Username string `flag:"-u; default: hatlonely"`
-	To       string `flag:"-t; default: lulu"`
+	Username string
+	To       string
 
 	Window struct {
 		Width      int `flag:"default: 50"`
@@ -163,7 +163,7 @@ func main() {
 			case "<Space>":
 				appendCharacterToTextArea(" ")
 			case "<Enter>":
-				appendMessageToChatArea(fmt.Sprintf("%s: %s", options.Username, textAreaBuffer.String()))
+				appendMessageToChatArea(fmt.Sprintf("[%s] %s", options.Username, textAreaBuffer.String()))
 				messages <- textAreaBuffer.String()
 				clearTextArea()
 			default:
