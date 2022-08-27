@@ -1,0 +1,6 @@
+.cfg/
+.idea/
+vendor/
+build/
+tmp/
+*.bk
