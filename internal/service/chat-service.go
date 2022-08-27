@@ -20,7 +20,7 @@ type ChatService struct {
 
 	options *Options
 
-	chatChannels map[string]*chan api.MessageFromClient
+	chatChannels map[string]*chan api.ClientMessage
 }
 
 func (s *ChatService) Chat(stream api.ChatService_ChatServer) error {
@@ -31,9 +31,12 @@ func (s *ChatService) Chat(stream api.ChatService_ChatServer) error {
 			break
 		}
 
-		err = stream.Send(&api.MessageFromServer{
-			From:    "server",
-			Message: "hello client",
+		err = stream.Send(&api.ServerMessage{
+			Type: api.ServerMessage_SMTChat,
+			Chat: &api.ServerMessage_Chat{
+				From:    "server",
+				Content: "hello client",
+			},
 		})
 		fmt.Println(err)
 		if err != nil {

@@ -5,15 +5,53 @@ package api;
 option go_package = "github.com/hatlonely/chart-server/api/gen/go/api";
 
 service ChatService {
-  rpc Chat(stream MessageFromClient) returns (stream MessageFromServer) {}
+  rpc Chat(stream ClientMessage) returns (stream ServerMessage) {}
 }
 
-message MessageFromClient {
-  string to = 1;
-  string message = 2;
+message ClientMessage {
+  enum Type {
+    CMTErr = 0;
+    CMTAuth = 1;
+    CMTChat = 2;
+  }
+
+  message Err {
+    string Code = 1;
+    string Message = 2;
+  }
+
+  message Auth {
+    string username = 1;
+  }
+
+  message Chat {
+    string to = 1;
+    string content = 2;
+  }
+
+  Type type = 1;
+  Err err = 2;
+  Auth auth = 3;
+  Chat chat = 4;
 }
 
-message MessageFromServer {
-  string from = 1;
-  string message = 2;
+message ServerMessage {
+  enum Type {
+    SMTErr = 0;
+    SMTChat = 1;
+  }
+
+  message Err {
+    string Code = 1;
+    string Message = 2;
+  }
+
+  message Chat {
+    string from = 1;
+    string content = 2;
+  }
+
+  Type type = 1;
+  Err err = 2;
+  Chat chat = 3;
 }

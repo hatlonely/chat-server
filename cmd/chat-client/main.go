@@ -99,9 +99,12 @@ func main() {
 			case <-ctx.Done():
 				break sendLoop
 			case message := <-messages:
-				if err := stream.Send(&api.MessageFromClient{
-					To:      options.To,
-					Message: message,
+				if err := stream.Send(&api.ClientMessage{
+					Type: api.ClientMessage_CMTChat,
+					Chat: &api.ClientMessage_Chat{
+						To:      options.To,
+						Content: message,
+					},
 				}); err != nil {
 					fmt.Printf("system: %s\n", err.Error())
 					continue
@@ -120,7 +123,7 @@ func main() {
 				continue
 			}
 
-			appendMessageToChatArea(fmt.Sprintf("%s: %s", message.From, message.Message))
+			appendMessageToChatArea(fmt.Sprintf("%s: %s", message.Chat.From, message.Chat.Content))
 		}
 	}()
 
