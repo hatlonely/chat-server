@@ -99,7 +99,7 @@ func main() {
 			case <-ctx.Done():
 				break sendLoop
 			case message := <-messages:
-				if err := stream.Send(&api.MessageToSend{
+				if err := stream.Send(&api.MessageFromClient{
 					To:      options.To,
 					Message: message,
 				}); err != nil {

@@ -19,6 +19,8 @@ type ChatService struct {
 	api.UnsafeChatServiceServer
 
 	options *Options
+
+	chatChannels map[string]*chan api.MessageFromClient
 }
 
 func (s *ChatService) Chat(stream api.ChatService_ChatServer) error {
@@ -29,7 +31,7 @@ func (s *ChatService) Chat(stream api.ChatService_ChatServer) error {
 			break
 		}
 
-		err = stream.Send(&api.MessageToRecv{
+		err = stream.Send(&api.MessageFromServer{
 			From:    "server",
 			Message: "hello client",
 		})
