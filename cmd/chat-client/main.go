@@ -22,8 +22,8 @@ type Options struct {
 	flag.Options
 
 	Endpoint string `flag:"-e; default: 127.0.0.1:6080"`
-	Username string
-	To       string
+	Username string `flag:"-u"`
+	To       string `flag:"-t"`
 
 	Window struct {
 		Width      int `flag:"default: 50"`
