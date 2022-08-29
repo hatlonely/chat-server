@@ -4,10 +4,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/pkg/errors"
-
 	"github.com/hatlonely/chat-server/api/gen/go/api"
+	"github.com/hatlonely/chat-server/internal/storage"
+
 	"github.com/hatlonely/go-kit/logger"
+	"github.com/pkg/errors"
 )
 
 type Options struct {
@@ -18,6 +19,7 @@ func NewChatServiceWithOptions(options *Options) (*ChatService, error) {
 		options: options,
 		conns:   sync.Map{},
 		rpcLog:  logger.NewStdoutJsonLogger(),
+		storage: storage.NewLocalChatStorageWithOptions(),
 	}, nil
 }
 
@@ -26,7 +28,9 @@ type ChatService struct {
 
 	options *Options
 	conns   sync.Map
-	rpcLog  *logger.Logger
+	storage storage.ChatStorage
+
+	rpcLog *logger.Logger
 }
 
 func (s *ChatService) setErr(stream api.ChatService_ChatServer, code api.ServerMessage_Err_Code, message string) error {
@@ -70,9 +74,26 @@ func (s *ChatService) auth(stream api.ChatService_ChatServer) (*api.ClientMessag
 	return message.Auth, nil
 }
 
+func (s *ChatService) history(stream api.ChatService_ChatServer, auth *api.ClientMessage_Auth) error {
+	messages := s.storage.GetMessageByUser(auth.Username, 0)
+	for _, message := range messages {
+		res := &api.ServerMessage{
+			Type: api.ServerMessage_SMTChat,
+			Chat: &api.ServerMessage_Chat{
+				From:    message.From,
+				Content: message.Content,
+			},
+		}
+		if err := stream.Send(res); err != nil {
+			s.rpcLog.Error(err)
+			return errors.Wrap(err, "stream.Send failed")
+		}
+	}
+	return nil
+}
+
 func (s *ChatService) conn(stream api.ChatService_ChatServer, auth *api.ClientMessage_Auth) (string, error) {
 	s.conns.Store(auth.Username, stream)
-
 	return "", nil
 }
 
@@ -104,7 +125,7 @@ func (s *ChatService) chatLoop(stream api.ChatService_ChatServer, msgChan chan<-
 func (s *ChatService) send(stream api.ChatService_ChatServer, username string, message *api.ClientMessage_Chat) error {
 	conn, ok := s.conns.Load(message.To)
 	if !ok {
-		return s.setErr(stream, api.ServerMessage_Err_PersonNotFound, "用户不在线")
+		return nil
 	}
 
 	toStream := conn.(api.ChatService_ChatServer)
@@ -133,7 +154,12 @@ func (s *ChatService) Chat(stream api.ChatService_ChatServer) error {
 
 	_, err = s.conn(stream, auth)
 	if err != nil {
-		return errors.WithMessagef(err, "conn failed")
+		return errors.WithMessage(err, "conn failed")
+	}
+
+	err = s.history(stream, auth)
+	if err != nil {
+		return errors.WithMessage(err, "history failed")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -154,6 +180,11 @@ func (s *ChatService) Chat(stream api.ChatService_ChatServer) error {
 			cancel()
 			return err
 		case msg := <-msgChan:
+			if err := s.storage.PutMessage(auth.Username, msg.To, msg.Content); err != nil {
+				if err := s.setErr(stream, api.ServerMessage_Err_AuthFailed, "内部错误"); err != nil {
+					errChan <- err
+				}
+			}
 			if err := s.send(stream, auth.Username, msg); err != nil {
 				errChan <- err
 			}
